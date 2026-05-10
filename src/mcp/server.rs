@@ -134,10 +134,7 @@ impl SlapServer {
 
         if let Some(v) = min_level {
             if !(1..=6).contains(&v) {
-                return Err(rmcp::Error::invalid_params(
-                    "min_level must be 1-6",
-                    None,
-                ));
+                return Err(rmcp::Error::invalid_params("min_level must be 1-6", None));
             }
             config.min_level = v;
             changes.push(format!("min_level={v}"));

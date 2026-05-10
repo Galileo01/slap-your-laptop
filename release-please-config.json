@@ -3,8 +3,8 @@
   "packages": {
     ".": {
       "release-type": "rust",
-      "package-name": "slap-your-openclaw",
-      "component": "slap-your-openclaw",
+      "package-name": "slap-your-laptop",
+      "component": "slap-your-laptop",
       "extra-files": [
         {
           "type": "toml",
