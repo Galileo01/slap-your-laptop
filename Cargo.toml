@@ -1,18 +1,17 @@
 [package]
-name = "slap-your-openclaw"
+name = "slap-your-laptop"
 version = "0.1.1"
 edition = "2021"
-description = "slap-your-openclaw - Detect MacBook slaps and trigger OpenClaw roast events"
+description = "slap-your-laptop - Detect MacBook slaps and shakes via built-in accelerometer"
 license = "MIT"
 
 [[bin]]
-name = "slap-your-openclaw"
+name = "slap-your-laptop"
 path = "src/main.rs"
 
 [dependencies]
 clap = { version = "4", features = ["derive", "env"] }
 tokio = { version = "1", features = ["full"] }
-uuid = { version = "1", features = ["v4"] }
 libc = "0.2"
 rmcp = { version = "0.1", features = ["server", "transport-io", "macros"] }
 serde = { version = "1", features = ["derive"] }

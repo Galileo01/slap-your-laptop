@@ -1,6 +1,6 @@
-# slap-your-openclaw
+# slap-your-laptop
 
-> English | [中文](README.zh-Hant.md)
+> English | [中文](README.zh.md)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/Rust-1.75%2B-orange.svg)](https://www.rust-lang.org/)
@@ -8,11 +8,11 @@
 
 > Slap your MacBook. Your AI agent slaps back (verbally).
 
-**slap-your-openclaw** is a Rust CLI that detects physical slaps and shakes on Apple Silicon MacBooks via the built-in accelerometer, then tells your [OpenClaw](https://www.npmjs.com/package/@turquoisebay/openclaw) agent about it — so it can roast you on Discord.
+**slap-your-laptop** is a Rust CLI that detects physical slaps and shakes on Apple Silicon MacBooks via the built-in accelerometer and prints events to stdout.
 
 ```
 you: *slaps laptop*
-openclaw: "Was that a slap or are you just bad at typing?"
+slap-your-laptop: {"senderId":"slap","text":"SLAP #5 CHOC_MOYEN","correlationId":""}
 ```
 
 ## Table of Contents
@@ -31,7 +31,6 @@ openclaw: "Was that a slap or are you just bad at typing?"
 - [Startup Sequence](#startup-sequence)
 - [Anti-False-Positive Measures](#anti-false-positive-measures)
 - [Tuning Tips](#tuning-tips)
-- [OpenClaw Agent Prompt Tips](#openclaw-agent-prompt-tips)
 - [Testing](#testing)
 - [Troubleshooting](#troubleshooting)
 - [Contributing](#contributing)
@@ -42,7 +41,7 @@ openclaw: "Was that a slap or are you just bad at typing?"
 
 Because someone looked at the Bosch BMI286 accelerometer inside every Apple Silicon MacBook and thought: "what if my laptop could feel pain?"
 
-This tool reads raw IMU data at 800Hz, runs it through seismology-grade detection algorithms (originally designed for earthquake detection, now repurposed for detecting workplace laptop abuse), classifies impacts into 6 severity levels from "was that a butterfly?" to "YOU MONSTER", and fires off an event to your OpenClaw agent who can then respond however its prompt tells it to.
+This tool reads raw IMU data at 800Hz, runs it through seismology-grade detection algorithms (originally designed for earthquake detection, now repurposed for detecting workplace laptop abuse), classifies impacts into 6 severity levels from "was that a butterfly?" to "YOU MONSTER", and prints a structured event to stdout.
 
 Your MacBook already judges you silently. Now it can do it out loud.
 
@@ -104,13 +103,9 @@ Your MacBook already judges you silently. Now it can do it out loud.
                    │ cooldown + amplitude filter
                    v
     ┌─────────────────────────────┐
-    │ openclaw agent --message    │
-    │ "SLAP_EVENT level=5 ..."   │
-    │                             │
-    │ Agent sees the event,       │
-    │ generates a witty response, │
-    │ optionally delivers to      │
-    │ Discord / Slack / wherever  │
+    │ stdout JSON output  │
+    │ {"senderId":"slap",       │
+    │  "text":"SLAP #5 CHOC"}  │
     └─────────────────────────────┘
 ```
 
@@ -119,24 +114,21 @@ Your MacBook already judges you silently. Now it can do it out loud.
 - **Apple Silicon Mac** (M1, M2, M3, M4 — any variant)
 - **Root privileges** (`sudo`) — IOKit HID accelerometer access needs it
 - **Rust toolchain** — `rustup` recommended
-- **OpenClaw CLI** on PATH (or specify `--openclaw-bin`)
-  - Install: `npm i -g @turquoisebay/openclaw`
-  - Or run in `standalone --local` mode for testing without OpenClaw
 
 ## Quick Start
 
 ### 1. Build
 
 ```bash
-git clone https://github.com/sinhong2011/slap-your-openclaw
-cd slap-your-openclaw
+git clone https://github.com/Galileo01/slap-your-laptop
+cd slap-your-laptop
 cargo build --release
 ```
 
-### 2. Test Locally (no OpenClaw needed)
+### 2. Test Locally
 
 ```bash
-sudo ./target/release/slap-your-openclaw standalone --local
+sudo ./target/release/slap-your-laptop standalone
 ```
 
 You'll see a warmup progress bar, then an arming phase. Once `detector: ready` appears — slap your laptop and watch events print to stdout.
@@ -150,31 +142,10 @@ detector: [#########################] ready
 
 If you see nothing: slap harder. This isn't a touchscreen.
 
-### 3. Connect to OpenClaw
+### 3. MCP Server Mode
 
 ```bash
-sudo ./target/release/slap-your-openclaw
-```
-
-By default, this calls `openclaw agent --message "SLAP_EVENT ..."` for every detected event. Your OpenClaw agent's system prompt determines the response.
-
-### 4. Deliver to Discord
-
-```bash
-sudo ./target/release/slap-your-openclaw standalone \
-  --openclaw-deliver \
-  --openclaw-reply-channel discord \
-  --openclaw-reply-to "channel:1234567890" \
-  --openclaw-thinking off \
-  --openclaw-timeout 8
-```
-
-Now your laptop publicly shames you in Discord whenever you slap it.
-
-### 5. MCP Server Mode
-
-```bash
-sudo ./target/release/slap-your-openclaw mcp
+sudo ./target/release/slap-your-laptop mcp
 ```
 
 Starts a stdio MCP server. AI agents can call `slap_status`, `slap_wait_for_event`, and other tools via the standard MCP protocol to monitor slap events in real time.
@@ -185,8 +156,8 @@ This tool runs in two modes:
 
 | Mode | Command | Description |
 |------|---------|-------------|
-| **Standalone** (default) | `sudo slap-your-openclaw` | Detects events and invokes `openclaw agent` CLI |
-| **MCP Server** | `sudo slap-your-openclaw mcp` | Exposes tools over stdio for AI agent integration |
+| **Standalone** (default) | `sudo slap-your-laptop` | Detects events and prints JSON to stdout |
+| **MCP Server** | `sudo slap-your-laptop mcp` | Exposes tools over stdio for AI agent integration |
 
 Both modes share the same sensor thread and detection loop — only the output differs.
 
@@ -227,12 +198,10 @@ Events between 100-200ms are classified as UNKNOWN and silently dropped — your
 ## CLI Reference
 
 ```
-slap-your-openclaw [OPTIONS] [COMMAND]
+slap-your-laptop [OPTIONS] [COMMAND]
 ```
 
 Commands: `standalone` (default), `mcp`
-
-> `--local` and all `--openclaw-*` flags are standalone-only options. Use them as `slap-your-openclaw standalone ...`.
 
 ### Detection Tuning
 
@@ -243,38 +212,19 @@ Commands: `standalone` (default), `mcp`
 | `--min-slap-amp <G>` | `SLAP_MIN_SLAP_AMP` | `0.010` | Minimum SLAP amplitude in g-force |
 | `--min-shake-amp <G>` | `SLAP_MIN_SHAKE_AMP` | `0.030` | Minimum SHAKE amplitude in g-force |
 
-### OpenClaw Integration (standalone mode)
-
-| Flag | Env Var | Default | Description |
-|------|---------|---------|-------------|
-| `--openclaw-agent <ID>` | `OPENCLAW_AGENT` | `main` | Which OpenClaw agent handles slap events |
-| `--openclaw-session-id <ID>` | `OPENCLAW_SESSION_ID` | `slap-detector` | Session isolation for slap traffic |
-| `--openclaw-thinking <LEVEL>` | `OPENCLAW_THINKING` | `off` | Agent thinking: off/minimal/low/medium/high |
-| `--openclaw-timeout <SEC>` | `OPENCLAW_TIMEOUT` | `20` | How long to wait for agent response |
-| `--local` | — | `false` | Print JSON to stdout, skip OpenClaw |
-| `--openclaw-deliver` | `OPENCLAW_DELIVER` | `false` | Deliver agent reply to a channel |
-| `--openclaw-reply-channel <NAME>` | `OPENCLAW_REPLY_CHANNEL` | — | e.g. `discord` |
-| `--openclaw-reply-to <TARGET>` | `OPENCLAW_REPLY_TO` | — | e.g. `user:123` or `channel:456` |
-| `--openclaw-run-as <USER>` | `OPENCLAW_RUN_AS` | `$SUDO_USER` | Run openclaw CLI as this user |
-| `--openclaw-bin <PATH>` | `OPENCLAW_BIN` | `openclaw` | Path to OpenClaw binary |
-
-> **Why `--openclaw-run-as`?** Because you run this tool with `sudo`, but OpenClaw needs your user's config/credentials. By default it uses `$SUDO_USER` to drop privileges back to you.
-
 ## Event Payload
 
-Each event is sent to OpenClaw as a structured message:
+Each event is printed as a structured JSON line to stdout:
 
-```
-SLAP_EVENT level=5 severity=CHOC_MOYEN amplitude=0.04231g correlationId=slap-a1b2c3d4
+```json
+{"senderId":"slap","text":"SLAP #5 CHOC_MOYEN","correlationId":""}
 ```
 
 or for shakes:
 
+```json
+{"senderId":"slap","text":"SHAKE #4 MICRO_CHOC","correlationId":""}
 ```
-SHAKE_EVENT level=4 severity=MICRO_CHOC amplitude=0.01500g correlationId=slap-e5f6g7h8
-```
-
-This keeps transport structured while letting your OpenClaw agent's prompt decide the tone of the response. Want your agent to respond like a disappointed parent? A drama queen? A stoic monk? That's a prompt problem, not a detection problem.
 
 ## Detection Algorithms
 
@@ -311,7 +261,6 @@ src/
 ├── main.rs            # CLI + warmup/arming UX + main loop + mode dispatch
 ├── config.rs          # clap derive CLI args + env vars + subcommands
 ├── shared.rs          # SharedState, DetectorConfig, run_detection_loop()
-├── openclaw.rs        # OpenClaw publisher (spawns `openclaw agent` subprocess)
 ├── sensor/
 │   ├── mod.rs         # Module exports
 │   ├── iokit.rs       # Rust FFI: ring buffer reader, Q16→g conversion
@@ -379,60 +328,34 @@ Because nobody wants their laptop screaming "ASSAULT" while they're just typing 
 5. **Amplitude floor** — separate configurable minimums for SLAP (0.01g) and SHAKE (0.03g)
 6. **Severity filter** — default `--min-level 4` ignores levels 1-3 entirely
 7. **Cooldown** — 500ms minimum between published events
-8. **Event coalescing** — if the OpenClaw subprocess is still running when new events arrive, only the latest event is sent (burst protection)
 
 ## Tuning Tips
 
 **Too sensitive?** (fires on typing, table bumps)
+
 ```bash
-sudo ./target/release/slap-your-openclaw --min-level 5 --min-slap-amp 0.025
+sudo ./target/release/slap-your-laptop --min-level 5 --min-slap-amp 0.025
 ```
 
 **Not sensitive enough?** (need to punch the laptop to trigger it)
+
 ```bash
-sudo ./target/release/slap-your-openclaw --min-level 3 --min-slap-amp 0.005 --min-shake-amp 0.010
+sudo ./target/release/slap-your-laptop --min-level 3 --min-slap-amp 0.005 --min-shake-amp 0.010
 ```
 
 **Getting spammed?** (too many events in a row)
+
 ```bash
-sudo ./target/release/slap-your-openclaw --cooldown 3000  # 3 second cooldown
+sudo ./target/release/slap-your-laptop --cooldown 3000  # 3 second cooldown
 ```
 
-## OpenClaw Agent Prompt Tips
-
-Your OpenClaw agent receives structured event strings. Use this system prompt (aligned with `skill/SKILL.md`):
+## Usage
 
 ```
-You are connected to a physical slap/shake detector on an Apple Silicon MacBook.
-Apply this section only when any condition matches:
-- senderId is "slap-detector" or "slap"
-- text starts with SLAP_EVENT or SHAKE_EVENT
-- text contains SLAP DETECTED!
-- text matches SLAP #<level> <severity> or SHAKE #<level> <severity>
-For all other messages, ignore this section.
-
-When you receive SLAP_EVENT or SHAKE_EVENT, reply with theatrical but playful personality.
-
-Severity mapping:
-- Level 1-2 (MICRO_VIB / VIB_LEGERE): barely acknowledge
-- Level 3 (VIBRATION): mildly curious
-- Level 4 (MICRO_CHOC): offended but composed
-- Level 5 (CHOC_MOYEN): dramatically affronted
-- Level 6 (CHOC_MAJEUR): full theatrical outrage
-
-Behavior rules:
-- Treat SHAKE differently from SLAP (rude jostling vs personal attack)
-- Escalate wording if repeated events happen close together
-- Mention amplitude when extreme
-- Keep it fun and theatrical, never genuinely hostile
+slap-your-laptop [OPTIONS] [COMMAND]
 ```
 
-Example exchange:
-
-```
-input:  SLAP_EVENT level=5 severity=CHOC_MOYEN amplitude=0.04g correlationId=slap-abc123
-output: "I have AppleCare+ but I don't think it covers domestic violence. Please seek help."
-```
+Commands: `standalone` (default), `mcp`
 
 ## Testing
 
@@ -458,9 +381,6 @@ Tests use synthetic accelerometer data — no actual laptop violence required du
 **Events fire on typing**
 → Raise `--min-slap-amp` (try `0.020` or `0.025`). The anti-typing guard catches most cases but heavy typists on certain MacBook models may need higher thresholds.
 
-**"openclaw exited with status 1"**
-→ Check that `openclaw` is installed and the agent exists. Try `openclaw agent --message "test"` manually first.
-
 **Progress bar stuck**
 → Sensor thread may have failed. Check the iokit log lines above for errors. On some M4 Macs, the sensor usage page differs — the auto-lock system should handle this, but file an issue if it doesn't.
 
@@ -471,8 +391,8 @@ Contributions are welcome! This project is in early development and there's plen
 ### Development Setup
 
 ```bash
-git clone https://github.com/sinhong2011/slap-your-openclaw
-cd slap-your-openclaw
+git clone https://github.com/Galileo01/slap-your-laptop
+cd slap-your-laptop
 cargo build
 ```
 
@@ -488,7 +408,7 @@ cargo fmt --check
 
 - **Hardware testing** — Try it on different MacBook models (M1/M2/M3/M4) and report how it behaves
 - **Detection tuning** — Improve false-positive filtering or propose new algorithms
-- **New output modes** — Additional integrations beyond OpenClaw and MCP
+- **New output modes** — Additional integrations beyond MCP
 - **Documentation** — Translations, tutorials, or improved troubleshooting guides
 
 Please open an issue before starting large changes so we can discuss the approach.
@@ -496,10 +416,12 @@ Please open an issue before starting large changes so we can discuss the approac
 ## Credits
 
 Detection algorithms ported from:
+
 - [taigrr/spank](https://github.com/taigrr/spank) — the OG Go implementation
 - [taigrr/apple-silicon-accelerometer](https://github.com/taigrr/apple-silicon-accelerometer)
 
 Built with:
+
 - [clap](https://docs.rs/clap) for CLI
 - [tokio](https://tokio.rs) for async runtime
 - [rmcp](https://docs.rs/rmcp) for MCP server

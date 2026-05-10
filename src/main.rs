@@ -1,7 +1,6 @@
 mod config;
 mod detector;
 mod mcp;
-mod openclaw;
 mod sensor;
 mod shared;
 
@@ -9,7 +8,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use clap::Parser;
-use config::{Cli, Command, StandaloneArgs};
+use config::{Cli, Command};
 use shared::{DetectorConfig, SharedState};
 
 #[tokio::main]
@@ -18,32 +17,23 @@ async fn main() {
 
     // Check root privileges
     if unsafe { libc::geteuid() } != 0 {
-        eprintln!("error: slap-your-openclaw requires root privileges for accelerometer access");
-        eprintln!("run with: sudo slap-your-openclaw");
+        eprintln!("error: slap-your-laptop requires root privileges for accelerometer access");
+        eprintln!("run with: sudo slap-your-laptop");
         std::process::exit(1);
     }
 
-    // Resolve standalone args (for startup logging when in standalone mode)
-    let standalone_args = match &cli.command {
-        Some(Command::Standalone(args)) => Some(args.clone()),
-        None => Some(StandaloneArgs::default()),
-        Some(Command::Mcp) => None,
-    };
-
-    if let Some(ref args) = standalone_args {
+    if matches!(cli.command, Some(Command::Mcp)) {
         eprintln!(
-            "slap-your-openclaw: starting standalone (local={}, min_level={}, cooldown={}ms, min_slap_amp={:.4}g, min_shake_amp={:.4}g)",
-            args.local,
+            "slap-your-laptop: starting MCP server (min_level={}, cooldown={}ms)",
+            cli.min_level, cli.cooldown_ms
+        );
+    } else {
+        eprintln!(
+            "slap-your-laptop: starting standalone (min_level={}, cooldown={}ms, min_slap_amp={:.4}g, min_shake_amp={:.4}g)",
             cli.min_level,
             cli.cooldown_ms,
             cli.min_slap_amp,
             cli.min_shake_amp
-        );
-    } else {
-        eprintln!(
-            "slap-your-openclaw: starting MCP server (min_level={}, cooldown={}ms)",
-            cli.min_level,
-            cli.cooldown_ms
         );
     }
 
@@ -82,35 +72,13 @@ async fn main() {
             }
         }
         _ => {
-            let args = standalone_args.unwrap();
-            run_standalone(args, state).await;
+            run_standalone(state).await;
         }
     }
 }
 
-async fn run_standalone(args: StandaloneArgs, state: Arc<SharedState>) {
-    enum OutputMode {
-        Local,
-        OpenClaw(openclaw::Publisher),
-    }
-
-    let mode = if args.local {
-        OutputMode::Local
-    } else {
-        match openclaw::Publisher::connect(&args) {
-            Ok(p) => OutputMode::OpenClaw(p),
-            Err(e) => {
-                eprintln!("error: {e}");
-                std::process::exit(1);
-            }
-        }
-    };
-
-    let mode_str = match &mode {
-        OutputMode::Local => "local mode (stdout)",
-        OutputMode::OpenClaw(_) => "openclaw-agent",
-    };
-    eprintln!("slap-your-openclaw: listening for slaps... (ctrl+c to quit) [{mode_str}]");
+async fn run_standalone(state: Arc<SharedState>) {
+    eprintln!("slap-your-laptop: listening for slaps... (ctrl+c to quit)");
 
     // Subscribe to events from the shared detection loop
     let mut rx = state.event_tx.subscribe();
@@ -119,21 +87,12 @@ async fn run_standalone(args: StandaloneArgs, state: Arc<SharedState>) {
         match rx.recv().await {
             Ok(ts_event) => {
                 let event = &ts_event.event;
-                match &mode {
-                    OutputMode::OpenClaw(publisher) => {
-                        if let Err(e) = publisher.publish(event) {
-                            eprintln!("openclaw publish error: {e}");
-                        }
-                    }
-                    OutputMode::Local => {
-                        println!(
-                            "{{\"senderId\":\"slap\",\"text\":\"{} #{} {}\",\"correlationId\":\"\"}}",
-                            event.kind.as_str(),
-                            event.severity.level(),
-                            event.severity.as_str()
-                        );
-                    }
-                }
+                println!(
+                    "{{\"senderId\":\"slap\",\"text\":\"{} #{} {}\",\"correlationId\":\"\"}}",
+                    event.kind.as_str(),
+                    event.severity.level(),
+                    event.severity.as_str()
+                );
             }
             Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
                 eprintln!("warning: dropped {n} events (consumer too slow)");

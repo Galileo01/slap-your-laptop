@@ -119,8 +119,7 @@ pub async fn run_detection_loop(mut ring: SensorRing, state: &SharedState) {
 
         // Progress bars on stderr (same as original)
         if remaining_warmup > 0 {
-            let tenths =
-                ((remaining_warmup * 10) as u64).div_ceil(detector::SAMPLE_RATE_HZ as u64);
+            let tenths = ((remaining_warmup * 10) as u64).div_ceil(detector::SAMPLE_RATE_HZ as u64);
             if warmup_last_tenths != Some(tenths) {
                 let done_tenths = warmup_total_tenths.saturating_sub(tenths);
                 let filled = ((done_tenths * bar_width) / warmup_total_tenths.max(1)) as usize;

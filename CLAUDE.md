@@ -1,14 +1,14 @@
-# slap-your-openclaw
+# slap-your-laptop
 
 ## What This Is
 
-A Rust CLI that detects physical slaps/impacts on Apple Silicon MacBooks via the built-in accelerometer (Bosch BMI286 IMU accessed via IOKit HID). Runs in two modes: standalone (invokes OpenClaw agent CLI) or MCP server (exposes tools over stdio for AI agent integration).
+A Rust CLI that detects physical slaps/impacts on Apple Silicon MacBooks via the built-in accelerometer (Bosch BMI286 IMU accessed via IOKit HID). Runs in two modes: standalone (prints JSON events to stdout) or MCP server (exposes tools over stdio for AI agent integration).
 
 ## Architecture
 
 ```
-slap-your-openclaw           # standalone mode (default, backwards-compatible)
-slap-your-openclaw mcp       # MCP server mode (stdio)
+slap-your-laptop           # standalone mode (default, backwards-compatible)
+slap-your-laptop mcp       # MCP server mode (stdio)
 ```
 
 Both modes share the same sensor thread + detection loop:
@@ -22,15 +22,14 @@ IOKit HID → ring buf   →   Detection Loop Task
                                 ↓ broadcast
                         ┌───────┴──────────┐
                    Standalone          MCP Server
-                   (openclaw CLI)      (rmcp stdio)
+                   (stdout JSON)      (rmcp stdio)
 ```
 
 ```
 src/
 ├── main.rs          # CLI (clap) + mode dispatch
-├── config.rs        # Cli struct + Command subcommands + StandaloneArgs
+├── config.rs        # Cli struct + Command subcommands
 ├── shared.rs        # SharedState, DetectorConfig, run_detection_loop()
-├── openclaw.rs      # OpenClaw agent CLI publisher (standalone mode)
 ├── sensor/
 │   ├── mod.rs       # Sensor module: start_sensor() → SensorRing
 │   ├── iokit.rs     # Rust FFI bindings to C shim
@@ -41,8 +40,7 @@ src/
 └── mcp/
     ├── mod.rs       # MCP module declaration
     └── server.rs    # SlapServer: 5 MCP tools via rmcp
-skill/
-└── SKILL.md         # Agent skill for response personality
+(moved to repo root as README section)
 ```
 
 ## MCP Tools
@@ -68,13 +66,12 @@ skill/
 ```bash
 cargo build --release
 
-# Standalone mode (default)
-sudo ./target/release/slap-your-openclaw
-sudo ./target/release/slap-your-openclaw standalone --local    # stdout JSON output
-sudo ./target/release/slap-your-openclaw --min-level 3         # more sensitive
+# Standalone mode (default) — prints JSON events to stdout
+sudo ./target/release/slap-your-laptop
+sudo ./target/release/slap-your-laptop --min-level 3         # more sensitive
 
 # MCP server mode
-sudo ./target/release/slap-your-openclaw mcp
+sudo ./target/release/slap-your-laptop mcp
 ```
 
 ## How to Test
@@ -91,4 +88,4 @@ cargo fmt --check    # Format check
 - Rust FFI in sensor/iokit.rs wraps C functions
 - Detector is pure Rust, no unsafe, fully unit-testable with synthetic data
 - MCP server uses rmcp crate with derive macros (same pattern as miniflux/mcp)
-- Shared detector args (cooldown, min_level, amplitudes) on top-level Cli; mode-specific args on subcommand
+- Shared detector args (cooldown, min_level, amplitudes) on top-level Cli
