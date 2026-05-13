@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.3](https://github.com/Galileo01/slap-your-laptop/compare/v0.1.2...v0.1.3) (2026-05-13)
+
+
+### Features
+
+* add audio module with sound packs, tracker escalation logic, and TODO for scale optimization ([#3](https://github.com/Galileo01/slap-your-laptop/issues/3)) ([66b2f55](https://github.com/Galileo01/slap-your-laptop/commit/66b2f55a7b46c7c8d37e010730759109b7725265))
+
 ## [0.1.2](https://github.com/Galileo01/slap-your-laptop/compare/v0.1.1...v0.1.2) (2026-05-10)
 
 
