@@ -1,9 +1,11 @@
 use std::io::{self, Write};
+use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
 use serde::Serialize;
 use tokio::sync::{broadcast, RwLock};
 
+use crate::audio::AudioCommand;
 use crate::detector::{self, Detector, Event, EventKind};
 use crate::sensor::iokit::SensorRing;
 
@@ -24,6 +26,11 @@ pub struct DetectorConfig {
     pub min_level: u8,
     pub min_slap_amp: f64,
     pub min_shake_amp: f64,
+    pub volume_scaling: bool,
+    pub speed_ratio: f64,
+    pub sound_pack_id: crate::audio::SoundPackId,
+    pub custom_path: Option<String>,
+    pub custom_files: Option<Vec<String>>,
 }
 
 /// Event with a unix timestamp for MCP consumers.
@@ -42,10 +49,12 @@ pub struct SharedState {
     pub recent_events: RwLock<Vec<TimestampedEvent>>,
     pub sensor_running: RwLock<bool>,
     pub started_at: Instant,
+    /// Channel to send audio playback commands to the audio thread
+    pub audio_tx: mpsc::Sender<AudioCommand>,
 }
 
 impl SharedState {
-    pub fn new(config: DetectorConfig) -> Self {
+    pub fn new(config: DetectorConfig, audio_tx: mpsc::Sender<AudioCommand>) -> Self {
         let (event_tx, _) = broadcast::channel(256);
         Self {
             config: RwLock::new(config),
@@ -55,6 +64,7 @@ impl SharedState {
             recent_events: RwLock::new(Vec::new()),
             sensor_running: RwLock::new(true),
             started_at: Instant::now(),
+            audio_tx,
         }
     }
 }
@@ -211,6 +221,9 @@ pub async fn run_detection_loop(mut ring: SensorRing, state: &SharedState) {
                 event.sources,
             );
 
+            // Capture amplitude before moving event
+            let amplitude = event.amplitude;
+
             let ts_event = TimestampedEvent {
                 event,
                 timestamp: now_secs,
@@ -227,6 +240,11 @@ pub async fn run_detection_loop(mut ring: SensorRing, state: &SharedState) {
                 if len > MAX_RECENT_EVENTS {
                     recent.drain(..len - MAX_RECENT_EVENTS);
                 }
+            }
+
+            // Send audio play command
+            if let Err(e) = state.audio_tx.send(AudioCommand::Play { amplitude }) {
+                eprintln!("audio: failed to send play command: {e}");
             }
 
             last_publish = Instant::now();

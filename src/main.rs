@@ -1,3 +1,4 @@
+mod audio;
 mod config;
 mod detector;
 mod mcp;
@@ -15,27 +16,100 @@ use shared::{DetectorConfig, SharedState};
 async fn main() {
     let cli = Cli::parse();
 
-    // Check root privileges
-    if unsafe { libc::geteuid() } != 0 {
-        eprintln!("error: slap-your-laptop requires root privileges for accelerometer access");
-        eprintln!("run with: sudo slap-your-laptop");
-        std::process::exit(1);
+    // --list-audio: print pack contents and exit (before root check since it doesn't need sensor)
+    if let Some(ref _pack_name) = cli.list_audio {
+        let pack_id = cli.sound_pack_id().unwrap_or_else(|e| {
+            eprintln!("{e}");
+            std::process::exit(1);
+        });
+        let pack = match pack_id {
+            audio::SoundPackId::Custom => {
+                if let Some(ref path) = cli.custom_path {
+                    match audio::SoundPack::from_dir(path) {
+                        Ok(p) => p,
+                        Err(e) => {
+                            eprintln!("{e}");
+                            std::process::exit(1);
+                        }
+                    }
+                } else if let Some(ref files) = cli.custom_files {
+                    let file_list: Vec<String> = files
+                        .split(',')
+                        .map(|s| s.trim().to_string())
+                        .filter(|s| !s.is_empty())
+                        .collect();
+                    match audio::SoundPack::from_files(&file_list) {
+                        Ok(p) => p,
+                        Err(e) => {
+                            eprintln!("{e}");
+                            std::process::exit(1);
+                        }
+                    }
+                } else {
+                    eprintln!("listing custom pack requires --custom-path or --custom-files");
+                    std::process::exit(1);
+                }
+            }
+            _ => match audio::SoundPack::builtin(pack_id) {
+                Ok(p) => p,
+                Err(e) => {
+                    eprintln!("{e}");
+                    std::process::exit(1);
+                }
+            },
+        };
+        eprintln!(
+            "Sound pack '{}' ({} files, mode={:?}):",
+            pack.name,
+            pack.files.len(),
+            pack.mode
+        );
+        for (i, f) in pack.list_files().iter().enumerate() {
+            eprintln!("  {:>3}. {}", i + 1, f);
+        }
+        std::process::exit(0);
     }
 
     if matches!(cli.command, Some(Command::Mcp)) {
         eprintln!(
-            "slap-your-laptop: starting MCP server (min_level={}, cooldown={}ms)",
-            cli.min_level, cli.cooldown_ms
+            "slap-your-laptop: starting MCP server (min_level={}, cooldown={}ms, sound={})",
+            cli.min_level, cli.cooldown_ms, cli.sound
         );
     } else {
         eprintln!(
-            "slap-your-laptop: starting standalone (min_level={}, cooldown={}ms, min_slap_amp={:.4}g, min_shake_amp={:.4}g)",
+            "slap-your-laptop: starting standalone (min_level={}, cooldown={}ms, min_slap_amp={:.4}g, min_shake_amp={:.4}g, sound={}, volume_scaling={}, speed={})",
             cli.min_level,
             cli.cooldown_ms,
             cli.min_slap_amp,
-            cli.min_shake_amp
+            cli.min_shake_amp,
+            cli.sound,
+            cli.volume_scaling,
+            cli.speed,
         );
     }
+
+    // Resolve sound pack ID
+    let pack_id = cli.sound_pack_id().unwrap_or_else(|e| {
+        eprintln!("error: {e}");
+        std::process::exit(1);
+    });
+
+    // Start audio thread (unless disabled)
+    let audio_tx = if !cli.no_audio {
+        let tx = crate::audio::spawn_audio_thread(
+            cli.volume_scaling,
+            cli.speed,
+            cli.cooldown_ms,
+            cli.custom_path.clone(),
+            cli.custom_files_list(),
+            pack_id,
+        );
+        eprintln!("audio: playback enabled (pack={:?})", pack_id);
+        Some(tx)
+    } else {
+        eprintln!("audio: playback disabled (--no-audio)");
+        None
+    };
 
     // Start accelerometer sensor
     let ring = match sensor::start_sensor() {
@@ -50,12 +124,20 @@ async fn main() {
     tokio::time::sleep(Duration::from_millis(100)).await;
 
     // Create shared state
-    let state = Arc::new(SharedState::new(DetectorConfig {
-        cooldown_ms: cli.cooldown_ms,
-        min_level: cli.min_level,
-        min_slap_amp: cli.min_slap_amp,
-        min_shake_amp: cli.min_shake_amp,
-    }));
+    let state = Arc::new(SharedState::new(
+        DetectorConfig {
+            cooldown_ms: cli.cooldown_ms,
+            min_level: cli.min_level,
+            min_slap_amp: cli.min_slap_amp,
+            min_shake_amp: cli.min_shake_amp,
+            volume_scaling: cli.volume_scaling,
+            speed_ratio: cli.speed,
+            sound_pack_id: pack_id,
+            custom_path: cli.custom_path.clone(),
+            custom_files: cli.custom_files_list(),
+        },
+        audio_tx.unwrap_or_else(|| std::sync::mpsc::channel().0),
+    ));
 
     // Spawn detection loop
     let detection_state = state.clone();

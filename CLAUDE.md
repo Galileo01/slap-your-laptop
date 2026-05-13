@@ -43,6 +43,80 @@ src/
 (moved to repo root as README section)
 ```
 
+## Audio Feedback
+
+When a slap or shake is detected, the system can play an MP3 sound as feedback:
+
+### 4 Built-in Sound Packs
+
+| Pack | Mode | Files | Description |
+|------|------|-------|-------------|
+| **pain** | Random | 10 | Reactions to being slapped (Ow, Ouch, Yowch, etc.) |
+| **sexy** | Escalation | 3 | Playful sounds, escalating with rapid hits |
+| **halo** | Random | 9 | Halo-themed weapon sounds |
+| **lizard** | Escalation | 1 | Lizard sound (Escalation mode, more files TBD) |
+
+### Play Modes
+
+- **Random**: Each event picks a random file from the pack
+- **Escalation**: Consecutive rapid hits select progressively more intense files (exponential decay score → S-curve mapping)
+
+### Custom Sound Packs
+
+Load your own MP3 files via `--sound custom` with either:
+- `--custom-path <dir>` — directory of MP3 files
+- `--custom-files <a.mp3,b.mp3,...>` — comma-separated file list
+
+## CLI Options
+
+```
+slap-your-laptop [OPTIONS] [COMMAND]
+
+Commands:
+  mcp         Run as MCP server over stdio (for AI agent integration)
+  standalone  Run in standalone mode (default if no subcommand)
+
+Options:
+      --cooldown <COOLDOWN_MS>         Cooldown between events in milliseconds [env: SLAP_COOLDOWN=] [default: 500]
+      --min-level <MIN_LEVEL>          Minimum severity level to publish (1-6) [env: SLAP_MIN_LEVEL=] [default: 4]
+      --min-slap-amp <MIN_SLAP_AMP>    Minimum SLAP amplitude (g) to publish [env: SLAP_MIN_SLAP_AMP=] [default: 0.01]
+      --min-shake-amp <MIN_SHAKE_AMP>  Minimum SHAKE amplitude (g) to publish [env: SLAP_MIN_SHAKE_AMP=] [default: 0.03]
+      --sound <SOUND>                  Sound pack: pain, sexy, halo, lizard, custom [env: SLAP_SOUND=] [default: pain]
+      --volume-scaling                 Enable volume scaling based on impact amplitude [env: SLAP_VOLUME_SCALING=] [default: true]
+      --speed <SPEED>                  Playback speed ratio, 1.0 = normal [env: SLAP_SPEED=] [default: 1]
+      --custom-path <CUSTOM_PATH>      Custom audio directory path (requires --sound custom) [env: SLAP_CUSTOM_PATH=]
+      --custom-files <CUSTOM_FILES>    Custom audio file paths, comma-separated (requires --sound custom) [env: SLAP_CUSTOM_FILES=]
+      --list-audio <LIST_AUDIO>        List all audio files in a sound pack and exit
+      --no-audio                       Disable audio playback entirely [env: SLAP_NO_AUDIO=]
+  -h, --help                           Print help
+  -V, --version                        Print version
+```
+
+### Examples
+
+```bash
+# Default: pain pack with volume scaling
+sudo ./target/release/slap-your-laptop
+
+# Sexy pack, faster playback
+sudo ./target/release/slap-your-laptop --sound sexy --speed 1.2
+
+# List available sounds in the halo pack
+./target/release/slap-your-laptop --list-audio halo
+
+# Custom sound pack from a directory
+sudo ./target/release/slap-your-laptop --sound custom --custom-path /path/to/mp3s/
+
+# Custom sound pack from specific files
+sudo ./target/release/slap-your-laptop --sound custom --custom-files hit1.mp3,hit2.mp3,hit3.mp3
+
+# Disable audio (back to original silent behavior)
+sudo ./target/release/slap-your-laptop --no-audio
+
+# More sensitive (lower min level)
+sudo ./target/release/slap-your-laptop --min-level 2
+```
+
 ## MCP Tools
 
 | Tool | Description |

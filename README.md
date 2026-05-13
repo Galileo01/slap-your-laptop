@@ -212,6 +212,18 @@ Commands: `standalone` (default), `mcp`
 | `--min-slap-amp <G>` | `SLAP_MIN_SLAP_AMP` | `0.010` | Minimum SLAP amplitude in g-force |
 | `--min-shake-amp <G>` | `SLAP_MIN_SHAKE_AMP` | `0.030` | Minimum SHAKE amplitude in g-force |
 
+### Audio Feedback
+
+| Flag | Env Var | Default | Description |
+|------|---------|---------|-------------|
+| `--sound <SOUND>` | `SLAP_SOUND` | `pain` | Sound pack: `pain`, `sexy`, `halo`, `lizard`, `custom` |
+| `--volume-scaling` | `SLAP_VOLUME_SCALING` | `true` | Scale volume by impact amplitude |
+| `--speed <SPEED>` | `SLAP_SPEED` | `1` | Playback speed ratio |
+| `--custom-path <DIR>` | `SLAP_CUSTOM_PATH` | — | Custom audio directory (requires `--sound custom`) |
+| `--custom-files <FILES>` | `SLAP_CUSTOM_FILES` | — | Comma-separated MP3 paths (requires `--sound custom`) |
+| `--list-audio <PACK>` | — | — | List files in a sound pack and exit |
+| `--no-audio` | `SLAP_NO_AUDIO` | — | Disable audio playback entirely |
+
 ## Event Payload
 
 Each event is printed as a structured JSON line to stdout:
@@ -258,7 +270,7 @@ Robust outlier detection over a 200-sample window. If the current sample is more
 
 ```
 src/
-├── main.rs            # CLI + warmup/arming UX + main loop + mode dispatch
+├── main.rs            # CLI + warmup/arming UX + main loop + mode dispatch + audio thread
 ├── config.rs          # clap derive CLI args + env vars + subcommands
 ├── shared.rs          # SharedState, DetectorConfig, run_detection_loop()
 ├── sensor/
@@ -268,6 +280,11 @@ src/
 ├── detector/
 │   ├── mod.rs         # 4 detection algorithms + severity classifier
 │   └── ring.rs        # Fixed-capacity ring buffer (RingFloat)
+├── audio/
+│   ├── mod.rs         # AudioError, AudioCommand, spawn_audio_thread(), type re-exports
+│   ├── pack.rs        # SoundPackId, PlayMode, SoundPack (builtin + custom loading)
+│   ├── player.rs      # AudioPlayer (rodio-based, non-blocking, volume scaling)
+│   └── tracker.rs     # SlapTracker (Random/Escalation index selection)
 └── mcp/
     ├── mod.rs         # MCP module declaration
     └── server.rs      # SlapServer: 5 MCP tools via rmcp
