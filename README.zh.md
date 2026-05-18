@@ -6,13 +6,13 @@
 [![Rust](https://img.shields.io/badge/Rust-1.75%2B-orange.svg)](https://www.rust-lang.org/)
 [![Platform](https://img.shields.io/badge/Platform-Apple%20Silicon-black.svg)](https://support.apple.com/en-us/116943)
 
-> 拍拍你的笔记本，你的 AI 助手会（嘴上）拍回来。
+> 拍拍你的笔记本，你的 AI 助手会（嘴上 + 音效）拍回来。
 
-**拍拍你的笔记本🦞** 是一个 Rust CLI 工具，通过内置加速度计检测 Apple Silicon MacBook 上的物理拍打和晃动，并在终端实时输出事件。
+**拍拍你的笔记本🦞** 是一个 Rust CLI 工具，通过内置加速度计检测 Apple Silicon MacBook 上的物理拍打和晃动，播放音效反馈，并在终端实时输出事件。
 
 ```
 你: *拍了笔记本一下*
-slap-your-laptop: {"senderId":"slap","text":"SLAP #5 CHOC_MOYEN","correlationId":""}
+slap-your-laptop: *播放"嗷！"音效* + {"senderId":"slap","text":"SLAP #5 CHOC_MOYEN","correlationId":""}
 ```
 
 ## 目录
@@ -41,9 +41,9 @@ slap-your-laptop: {"senderId":"slap","text":"SLAP #5 CHOC_MOYEN","correlationId"
 
 因为有人看了一眼每台 Apple Silicon MacBook 里的博世 BMI286 加速度计，然后想：「要是我的笔记本能感受到疼痛呢？」
 
-这个工具以 800Hz 频率读取原始 IMU 数据，通过地震学等级的检测算法处理（原本是为地震检测设计的，现在被征用来检测办公室笔记本虐待行为），将冲击分为 6 个严重等级，从「那是蝴蝶吗？」到「你这个恶魔」，然后把事件通过标准输出发送。
+这个工具以 800Hz 频率读取原始 IMU 数据，通过地震学等级的检测算法处理（原本是为地震检测设计的，现在被征用来检测办公室笔记本虐待行为），将冲击分为 6 个严重等级，从「那是蝴蝶吗？」到「你这个恶魔」，播放音效反馈，并把事件通过标准输出发送。
 
-你的 MacBook 早就已经在默默地评判你了。现在它可以大声说出来了。
+你的 MacBook 早就已经在默默地评判你了。现在它可以大声尖叫了。
 
 ## 运作方式
 
@@ -102,6 +102,15 @@ slap-your-laptop: {"senderId":"slap","text":"SLAP #5 CHOC_MOYEN","correlationId"
                    │ 冷却时间 + 振幅过滤
                    v
     ┌─────────────────────────────┐
+    │ 音频反馈                     │
+    │ - 4 个内置音效包             │
+    │ - 随机 / 递进模式            │
+    │ - 根据冲击幅度调整音量       │
+    │ - 支持自定义 MP3             │
+    └──────────────┬──────────────┘
+                   │
+                   v
+    ┌─────────────────────────────┐
     │ stdout JSON output          │
     │ {"senderId":"slap",         │
     │  "text":"SLAP #5 CHOC"}    │
@@ -114,10 +123,10 @@ slap-your-laptop: {"senderId":"slap","text":"SLAP #5 CHOC_MOYEN","correlationId"
 
 | 模式 | 指令 | 说明 |
 |------|------|------|
-| **Standalone** (默认) | `sudo slap-your-laptop` | 检测事件并输出 JSON 到终端 |
+| **Standalone** (默认) | `sudo slap-your-laptop` | 检测事件、播放音效反馈、并输出 JSON 到终端 |
 | **MCP Server** | `sudo slap-your-laptop mcp` | 通过 stdio 提供 MCP 工具，供 AI 代理集成 |
 
-两种模式共用相同的传感器线程和检测循环，区别在于事件的输出方式。
+两种模式共用相同的传感器线程和检测循环，区别在于事件的输出方式。Standalone 模式支持音频反馈（可用 `--no-audio` 禁用）。
 
 ### MCP 工具
 
@@ -151,16 +160,16 @@ cargo build --release
 sudo ./target/release/slap-your-laptop standalone
 ```
 
-你会看到暖机进度条，然后进入布防阶段。当 `detector: ready` 出现时，就可以拍你的笔记本，看事件输出到终端。
+你会看到暖机进度条，然后进入布防阶段。当 `detector: ready` 出现时，就可以拍你的笔记本，听到音效反馈，并看到事件输出到终端。
 
 ```
 warmup: [#########################] 0.0s remaining
 arming: [#########################] 0.0s remaining
 detector: [#########################] ready
->>> SLAP #5 [CHOC_MOYEN  amp=0.04231g] sources=["STA/LTA", "CUSUM", "PEAK"]
+>>> SLAP #5 [CHOC_MOYEN  amp=0.04231g] sources=["STA/LTA", "CUSUM", "PEAK"]  🔊 播放"嗷！"
 ```
 
-如果什么都没出现：拍用力一点。这不是触摸屏。
+如果什么都没出现：拍用力一点。这不是触摸屏。如果没听到声音：检查是否设置了 `--no-audio` 以及系统音量是否开启。
 
 ### 3. MCP 服务器模式
 
@@ -211,6 +220,18 @@ slap-your-laptop [选项] [命令]
 | `--min-slap-amp <G>` | `SLAP_MIN_SLAP_AMP` | `0.010` | 最小拍打振幅（g） |
 | `--min-shake-amp <G>` | `SLAP_MIN_SHAKE_AMP` | `0.030` | 最小晃动振幅（g） |
 
+### 音频反馈
+
+| 参数 | 环境变量 | 默认值 | 说明 |
+|------|---------|-------|------|
+| `--sound <SOUND>` | `SLAP_SOUND` | `pain` | 音效包：`pain`、`sexy`、`halo`、`lizard`、`custom` |
+| `--volume-scaling` | `SLAP_VOLUME_SCALING` | `true` | 根据冲击幅度调整音量 |
+| `--speed <SPEED>` | `SLAP_SPEED` | `1` | 播放速度比率 |
+| `--custom-path <DIR>` | `SLAP_CUSTOM_PATH` | — | 自定义音频目录（需配合 `--sound custom`） |
+| `--custom-files <FILES>` | `SLAP_CUSTOM_FILES` | — | 逗号分隔的 MP3 文件路径（需配合 `--sound custom`） |
+| `--list-audio <PACK>` | — | — | 列出音效包中的文件并退出 |
+| `--no-audio` | `SLAP_NO_AUDIO` | — | 完全禁用音频播放 |
+
 ## 事件内容
 
 每个事件以结构化 JSON 打印到 stdout：
@@ -257,7 +278,7 @@ slap-your-laptop [选项] [命令]
 
 ```
 src/
-├── main.rs            # CLI + 暖机/就绪交互 + 主循环 + 模式分发
+├── main.rs            # CLI + 暖机/就绪交互 + 主循环 + 模式分发 + 音频线程
 ├── config.rs          # clap 派生 CLI 参数 + 环境变量 + 子命令
 ├── shared.rs          # SharedState, DetectorConfig, run_detection_loop()
 ├── sensor/
@@ -267,6 +288,11 @@ src/
 ├── detector/
 │   ├── mod.rs         # 4 种检测算法 + 严重等级分类器
 │   └── ring.rs        # 固定容量环形缓冲区 (RingFloat)
+├── audio/
+│   ├── mod.rs         # AudioError, AudioCommand, spawn_audio_thread(), 类型重导出
+│   ├── pack.rs        # SoundPackId, PlayMode, SoundPack（内置 + 自定义加载）
+│   ├── player.rs      # AudioPlayer（基于 rodio，非阻塞，音量缩放）
+│   └── tracker.rs     # SlapTracker（Random/Escalation 索引选择）
 └── mcp/
     ├── mod.rs         # MCP 模块声明
     └── server.rs      # SlapServer: 5 个 MCP 工具 (rmcp)
@@ -348,6 +374,14 @@ sudo ./target/release/slap-your-laptop --min-level 3 --min-slap-amp 0.005 --min-
 sudo ./target/release/slap-your-laptop --cooldown 3000  # 3 秒冷却时间
 ```
 
+**想要不同的音效？**（试试其他音效包或自定义音频）
+
+```bash
+sudo ./target/release/slap-your-laptop --sound sexy          # 俏皮递进音效
+sudo ./target/release/slap-your-laptop --sound halo          # 光环武器音效
+sudo ./target/release/slap-your-laptop --sound custom --custom-path ~/my-sounds/  # 你自己的 MP3
+```
+
 ## 测试
 
 ```bash
@@ -416,6 +450,7 @@ cargo fmt --check
 - [clap](https://docs.rs/clap) — CLI 框架
 - [tokio](https://tokio.rs) — 异步运行时
 - [rmcp](https://docs.rs/rmcp) — MCP 服务器框架
+- [rodio](https://docs.rs/rodio) — 音频播放
 - [cc](https://docs.rs/cc) — C 适配层编译
 
 ## 授权条款
