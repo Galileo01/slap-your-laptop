@@ -6,13 +6,13 @@
 [![Rust](https://img.shields.io/badge/Rust-1.75%2B-orange.svg)](https://www.rust-lang.org/)
 [![Platform](https://img.shields.io/badge/Platform-Apple%20Silicon-black.svg)](https://support.apple.com/en-us/116943)
 
-> Slap your MacBook. Your AI agent slaps back (verbally).
+> Slap your MacBook. Your AI agent slaps back (verbally and audibly).
 
-**slap-your-laptop** is a Rust CLI that detects physical slaps and shakes on Apple Silicon MacBooks via the built-in accelerometer and prints events to stdout.
+**slap-your-laptop** is a Rust CLI that detects physical slaps and shakes on Apple Silicon MacBooks via the built-in accelerometer, plays audio feedback, and prints events to stdout.
 
 ```
 you: *slaps laptop*
-slap-your-laptop: {"senderId":"slap","text":"SLAP #5 CHOC_MOYEN","correlationId":""}
+slap-your-laptop: *plays "Ow!" sound* + {"senderId":"slap","text":"SLAP #5 CHOC_MOYEN","correlationId":""}
 ```
 
 ## Table of Contents
@@ -41,9 +41,9 @@ slap-your-laptop: {"senderId":"slap","text":"SLAP #5 CHOC_MOYEN","correlationId"
 
 Because someone looked at the Bosch BMI286 accelerometer inside every Apple Silicon MacBook and thought: "what if my laptop could feel pain?"
 
-This tool reads raw IMU data at 800Hz, runs it through seismology-grade detection algorithms (originally designed for earthquake detection, now repurposed for detecting workplace laptop abuse), classifies impacts into 6 severity levels from "was that a butterfly?" to "YOU MONSTER", and prints a structured event to stdout.
+This tool reads raw IMU data at 800Hz, runs it through seismology-grade detection algorithms (originally designed for earthquake detection, now repurposed for detecting workplace laptop abuse), classifies impacts into 6 severity levels from "was that a butterfly?" to "YOU MONSTER", plays audio feedback, and prints a structured event to stdout.
 
-Your MacBook already judges you silently. Now it can do it out loud.
+Your MacBook already judges you silently. Now it can scream about it.
 
 ## How It Works
 
@@ -103,9 +103,18 @@ Your MacBook already judges you silently. Now it can do it out loud.
                    │ cooldown + amplitude filter
                    v
     ┌─────────────────────────────┐
-    │ stdout JSON output  │
-    │ {"senderId":"slap",       │
-    │  "text":"SLAP #5 CHOC"}  │
+    │ Audio Feedback              │
+    │ - 4 built-in sound packs    │
+    │ - Random / Escalation mode  │
+    │ - Volume scaling by impact  │
+    │ - Custom MP3 support        │
+    └──────────────┬──────────────┘
+                   │
+                   v
+    ┌─────────────────────────────┐
+    │ stdout JSON output          │
+    │ {"senderId":"slap",         │
+    │  "text":"SLAP #5 CHOC"}    │
     └─────────────────────────────┘
 ```
 
@@ -131,16 +140,16 @@ cargo build --release
 sudo ./target/release/slap-your-laptop standalone
 ```
 
-You'll see a warmup progress bar, then an arming phase. Once `detector: ready` appears — slap your laptop and watch events print to stdout.
+You'll see a warmup progress bar, then an arming phase. Once `detector: ready` appears — slap your laptop, hear the sound feedback, and watch events print to stdout.
 
 ```
 warmup: [#########################] 0.0s remaining
 arming: [#########################] 0.0s remaining
 detector: [#########################] ready
->>> SLAP #5 [CHOC_MOYEN  amp=0.04231g] sources=["STA/LTA", "CUSUM", "PEAK"]
+>>> SLAP #5 [CHOC_MOYEN  amp=0.04231g] sources=["STA/LTA", "CUSUM", "PEAK"]  🔊 playing "Ow!"
 ```
 
-If you see nothing: slap harder. This isn't a touchscreen.
+If you see nothing: slap harder. This isn't a touchscreen. If you hear nothing: check `--no-audio` isn't set and your system volume is up.
 
 ### 3. MCP Server Mode
 
@@ -156,10 +165,10 @@ This tool runs in two modes:
 
 | Mode | Command | Description |
 |------|---------|-------------|
-| **Standalone** (default) | `sudo slap-your-laptop` | Detects events and prints JSON to stdout |
+| **Standalone** (default) | `sudo slap-your-laptop` | Detects events, plays audio feedback, and prints JSON to stdout |
 | **MCP Server** | `sudo slap-your-laptop mcp` | Exposes tools over stdio for AI agent integration |
 
-Both modes share the same sensor thread and detection loop — only the output differs.
+Both modes share the same sensor thread and detection loop — only the output differs. Audio feedback is available in standalone mode (disable with `--no-audio`).
 
 ### MCP Tools
 
@@ -366,6 +375,14 @@ sudo ./target/release/slap-your-laptop --min-level 3 --min-slap-amp 0.005 --min-
 sudo ./target/release/slap-your-laptop --cooldown 3000  # 3 second cooldown
 ```
 
+**Want different sounds?** (try other packs or custom audio)
+
+```bash
+sudo ./target/release/slap-your-laptop --sound sexy          # playful escalation sounds
+sudo ./target/release/slap-your-laptop --sound halo          # Halo weapon sounds
+sudo ./target/release/slap-your-laptop --sound custom --custom-path ~/my-sounds/  # your own MP3s
+```
+
 ## Usage
 
 ```
@@ -442,6 +459,7 @@ Built with:
 - [clap](https://docs.rs/clap) for CLI
 - [tokio](https://tokio.rs) for async runtime
 - [rmcp](https://docs.rs/rmcp) for MCP server
+- [rodio](https://docs.rs/rodio) for audio playback
 - [cc](https://docs.rs/cc) for C shim compilation
 
 ## License
