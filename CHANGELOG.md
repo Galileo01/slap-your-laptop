@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.4](https://github.com/Galileo01/slap-your-laptop/compare/v0.1.3...v0.1.4) (2026-05-21)
+
+
+### Features
+
+* remove duplicate Usage section from README ([#6](https://github.com/Galileo01/slap-your-laptop/issues/6)) ([8ef10a8](https://github.com/Galileo01/slap-your-laptop/commit/8ef10a8e9d7664a23dde54a246fec57573cd83c0))
+
 ## [0.1.3](https://github.com/Galileo01/slap-your-laptop/compare/v0.1.2...v0.1.3) (2026-05-13)
 
 
