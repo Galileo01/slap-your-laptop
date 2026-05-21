@@ -1,6 +1,6 @@
 [package]
 name = "slap-your-laptop"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2021"
 description = "slap-your-laptop - Detect MacBook slaps and shakes via built-in accelerometer"
 license = "MIT"
