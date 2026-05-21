@@ -383,14 +383,6 @@ sudo ./target/release/slap-your-laptop --sound halo          # Halo weapon sound
 sudo ./target/release/slap-your-laptop --sound custom --custom-path ~/my-sounds/  # your own MP3s
 ```
 
-## Usage
-
-```
-slap-your-laptop [OPTIONS] [COMMAND]
-```
-
-Commands: `standalone` (default), `mcp`
-
 ## Testing
 
 ```bash
